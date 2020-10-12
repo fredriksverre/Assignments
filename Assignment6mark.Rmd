@@ -1,0 +1,93 @@
+---
+title: "Konkursoversikt"
+author: "Fredrik Sverre Nilssen"
+date: Sist endret `r format(Sys.time(), '%d %B %Y')`
+output: html_document
+---
+
+```{r setup, include=FALSE,echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(rvest)
+library(purrr)
+library(lubridate)
+```
+
+```{r, include=TRUE,echo=FALSE,message=FALSE,warning=FALSE}
+
+#Har sammarbeidet delevis med Alf Henrik Heggelud, Sofie Rise og Herman Haugaa
+
+url2019<-read_html("https://w2.brreg.no/kunngjoring/kombisok.jsp?datoFra=01.01.2019&datoTil=31.12.2019&id_region=0&id_niva1=51&id_niva2=56&id_bransje1=0")
+url2020<-read_html("https://w2.brreg.no/kunngjoring/kombisok.jsp?datoFra=01.01.2020&datoTil=31.12.2020&id_region=0&id_niva1=51&id_niva2=56&id_bransje1=0")
+
+
+df.2019<-url2019 %>%
+  html_nodes(xpath = "//table") %>%
+  html_nodes("table")%>%
+  html_table(fill = TRUE) %>%
+  .[[1]]%>%
+  select(., X2,X4,X6,X8)%>%
+  mutate(Fylke=ifelse(grepl("[a-zA-Z]", X6), X6, NA)) %>% #lager en eksta rad kolonnerad med navn Fylke, velger ut bokstaver fra x6 raden og plaserer de under fylke, hvis ikke bokstav=NA 
+  fill(Fylke)%>% #fyller inn der det står NA
+  filter(nchar(X4)>=9) %>% #fjerner personer som er persolig konkurs
+  na.exclude%>%# tar vekk alle NA vardier
+  filter(X8 == "Konkursåpning")#får vekk alle verier enn konkursåpning
+  
+
+df.2020<-url2020 %>%
+  html_nodes(xpath = "//table") %>%
+  html_nodes("table")%>%
+  html_table(fill = TRUE) %>%
+  .[[1]]%>%
+  select(., X2,X4,X6,X8)%>%
+  mutate(Fylke=ifelse(grepl("[a-zA-Z]", X6), X6, NA)) %>% 
+  fill(Fylke)%>%
+  filter(nchar(X4)>=9) %>%
+  na.exclude%>%
+  filter(X8== "Konkursåpning")
+
+
+
+Alldata <-rbind(df.2019,df.2020)%>%
+  rename(.,"Bedrift"="X2","Org.nr"="X4","Dato"="X6","Status"="X8")
+
+Alldata$Dato <- as.Date(Alldata$Dato,format = "%d.%m.%Y",)
+
+
+Alldata<-Alldata %>% #Lager en ekstra dato for at jeg skal kunne rangere etter datoen. (arrange)
+  select(Bedrift,Org.nr,Dato,Fylke) %>%
+  mutate(
+    Dato2 = Dato )
+
+Alldata<-Alldata %>% 
+  separate(Dato2, c("Year","Month", "Day"), sep = "-") #separer slik at jeg får noe å plotte med senere
+
+Alldata <- Alldata %>% #Organiserer slik at jeg får rikktig rekkefølge på tellingen nedenfor 
+  arrange(Year,Fylke,Dato,) 
+
+Alldata<- Alldata%>%group_by(Fylke,Year,Month)%>%mutate(count=row_number()) #lager tellerad
+
+Alldata<- Alldata%>%group_by(Fylke,Year,Month)%>%filter(count==max(count)) #får vekk alt annet enn max størrelse
+
+#lager det kumulativt
+Alldata<-Alldata%>% group_by(Year,Fylke)%>% mutate(cumulative = cumsum(count))
+
+
+```
+```{r fig1, fig.height = 7, fig.width = 10,include=TRUE,echo=FALSE,message=FALSE,warning=FALSE}
+
+Alldata %>% 
+  ggplot(aes(x=Month, y=cumulative,group=Year)) +
+  geom_line(aes(color=Year))+
+  ylab(expression("Antall konkurser")) +
+  xlab("Måneder") +
+  labs(title = "Graf",
+       subtitle = "",
+       caption = "") +
+  facet_wrap(~Fylke)
+```
+
+
+
+
+Det var `r nrow(df.2019)` konkurser i 2019 og det er `r nrow(df.2020)` konkurser til nå i 2020.

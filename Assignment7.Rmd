@@ -8,6 +8,8 @@ output: html_document
 ```{r setup, include=FALSE,echo=FALSE}
 library(tidyverse)
 library(ggthemes)
+
+# Har jobbet noe med Alf Henrik og Andreas Skundberg.
 ```
 
 All data is from the [CDC](https://www.cdc.gov/nchs/data_access/vitalstatsonline.htm) Centers for Disease Control and Prevention
@@ -51,7 +53,7 @@ Births2018 <- Births2018 %>% mutate(Year=2018)
 Births2019 <- Births2019 %>% mutate(Year=2019)
 
 
-#Smeller all dataen i ett filter vikk vekt under 9999som er en error 
+#Smeller all dataen i ett 
 Alldata<- bind_rows(Births2017,Births2018,Births2019) 
 
 str(Alldata)
@@ -98,7 +100,7 @@ Meandata<- Alldata %>%
 
 # http://www.sthda.com/english/articles/32-r-graphics-essentials/133-plot-one-variable-frequency-graph-density-distribution-and-more/
 Alldata%>%
-  filter(BirthWeight<6000)%>%
+  filter(BirthWeight<6000)%>% # 9999er error så det må vekk, men å filtre vekkned til 6000 blir en finere graf. 
   ggplot(aes(x =BirthWeight,y = ..count..))+
   geom_density(aes(fill = SexOfInfant), alpha = 0.5)+
   geom_vline(aes(xintercept =avgWeight, color = SexOfInfant),

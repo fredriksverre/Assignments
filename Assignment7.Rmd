@@ -1,0 +1,146 @@
+---
+title: "American birth 2017-2019"
+author: "Fredrik Sverre Nilssen"
+date: Last edited `r format(Sys.time(), '%d %B %Y')`
+output: html_document
+---
+
+```{r setup, include=FALSE,echo=FALSE}
+library(tidyverse)
+library(ggthemes)
+```
+
+All data is from the [CDC](https://www.cdc.gov/nchs/data_access/vitalstatsonline.htm) Centers for Disease Control and Prevention
+
+```{r, include=FALSE,echo=FALSE,message=FALSE,warning=FALSE}
+
+#her er kunn beskrivelsen på hvordan jeg har hentet ut dataen
+
+#births2017 <- read_fwf("Nat2017PublicUS.c20180516.r20180808.txt",
+#         fwf_positions(start = c(13,23,475,504),
+ #                      end = c(14,23,475,507),
+ #                      col_names = c("BirthMonth","BirthDayOfWeek", "SexOfInfant","BirthWeight")
+ #      ))
+
+#write.csv(births2017,"Births2017",row.names = FALSE)
+
+
+#births2018 <- read_fwf("Nat2018PublicUS.c20190509.r20190717.txt",
+#                       fwf_positions(start = c(13,23,475,504),
+#                                     end = c(14,23,475,507),
+#                                     col_names = c("BirthMonth","BirthDayOfWeek", #"SexOfInfant","BirthWeight")
+#                       ))
+#write.csv(births2018,"Births2018",row.names = FALSE)
+#
+#
+#births2019 <- read_fwf("Nat2019PublicUS.c20200506.r20200915.txt",
+#                       fwf_positions(start = c(13,23,475,504),
+#                                     end = c(14,23,475,507),
+ #                                    col_names = c("BirthMonth","BirthDayOfWeek", #"SexOfInfant","BirthWeight")
+#                       ))
+#write.csv(births2019,"Births2019",row.names = FALSE)
+
+
+Births2017 <- read_csv("Births2017")
+Births2018 <- read_csv("Births2018")
+Births2019 <- read_csv("Births2019")
+
+#legger til års variabel
+Births2017 <- Births2017 %>% mutate(Year=2017)
+Births2018 <- Births2018 %>% mutate(Year=2018)
+Births2019 <- Births2019 %>% mutate(Year=2019)
+
+
+#Smeller all dataen i ett filter vikk vekt under 9999som er en error 
+Alldata<- bind_rows(Births2017,Births2018,Births2019) 
+
+str(Alldata)
+Alldata$BirthMonth<-as.numeric(Alldata$BirthMonth)
+Alldata$BirthWeight<-as.numeric(Alldata$BirthWeight)
+str(Alldata)
+
+#for å kunne plotte 1 
+AlldataMAX<- Alldata %>%  
+  group_by(Year,SexOfInfant) %>%
+  mutate(count=row_number()) %>%
+  filter(count==max(count))
+
+#fint format
+#install.packages("ggthemes")
+#library(ggthemes)
+```
+
+
+# The proportion of boys to girls
+```{r, include=TRUE,echo=FALSE,message=FALSE,warning=FALSE}
+##1 The proportion of boys to girls
+ggplot(data=AlldataMAX, aes(x=SexOfInfant, y=count,fill=SexOfInfant)) +
+  geom_bar(stat="identity")+
+  theme_hc()+
+  ylab(expression("Number of total births")) +
+    xlab("Sex of Infant")+
+  facet_wrap(~Year)
+
+
+```
+
+
+
+
+# The average birth weight in grams by gender
+```{r fig1, fig.height = 5, fig.width = 12, include=TRUE,echo=FALSE,message=FALSE,warning=FALSE}
+##2 The average birth weight in grams by gender
+
+
+Meandata<- Alldata %>%
+  group_by(Year,SexOfInfant)%>%
+  summarise(avgWeight=mean(BirthWeight))
+
+# http://www.sthda.com/english/articles/32-r-graphics-essentials/133-plot-one-variable-frequency-graph-density-distribution-and-more/
+Alldata%>%
+  filter(BirthWeight<6000)%>%
+  ggplot(aes(x =BirthWeight,y = ..count..))+
+  geom_density(aes(fill = SexOfInfant), alpha = 0.5)+
+  geom_vline(aes(xintercept =avgWeight, color = SexOfInfant),
+             data = Meandata, linetype = "dashed")+
+  scale_color_manual(values = c("#FC4E07", "#0073C2FF"))+
+  scale_fill_manual(values = c("#FC4E07", "#0073C2FF"))+
+  ylab(expression("Births")) +
+    xlab("Grams")+
+  facet_wrap(~Year)
+
+
+```
+
+
+```{r, include=TRUE,echo=FALSE,message=FALSE,warning=FALSE}
+Meandata
+```
+Here is the exact average birth weight in grams by gender
+
+
+# The proportion of boys to girls by day of birth
+```{r, include=TRUE,echo=FALSE,message=FALSE,warning=FALSE}
+##3 The proportion of boys to girls by day of birth. UKEDAG
+
+AlldataWeek <- Alldata %>% #Organiserer slik at jeg får rikktig rekkefølge på tellingen nedenfor 
+  arrange(Year,SexOfInfant,BirthDayOfWeek) 
+
+AlldataWeek<-AlldataWeek%>%  
+  group_by(Year,SexOfInfant,BirthDayOfWeek) %>%
+  mutate(count=row_number()) %>%
+  filter(count==max(count))
+
+
+AlldataWeek %>% 
+    ggplot(aes(x=BirthDayOfWeek, y=count,group=SexOfInfant)) +
+    geom_line(aes(color=SexOfInfant))+
+    ylab(expression("Births")) +
+    xlab("Weekday 1=Sunday,7=Monday") +
+    labs(title = "",
+         subtitle = "",
+         caption = "") +
+  facet_wrap(~Year)
+
+```
+
